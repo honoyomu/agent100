@@ -2,7 +2,6 @@ import { PlusIcon } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
 import { AutoPauseFields, DEFAULT_IDLE_SECONDS, parseAutoPause, type AutoPauseValue } from '@/components/auto-pause-fields'
-import { HarnessIcon } from '@/components/harness-icon'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -87,12 +86,11 @@ export function DeployAgentDialog({ disabled }: { disabled?: boolean }) {
                   key={h.id}
                   htmlFor={`harness-${h.id}`}
                   className={cn(
-                    'flex cursor-pointer items-center gap-3 rounded-lg border p-3 font-normal transition-colors',
-                    'has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-muted/50',
+                    'flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2.5 font-normal transition-colors hover:bg-muted/40',
+                    'has-[[data-state=checked]]:border-foreground/60 has-[[data-state=checked]]:bg-muted/60',
                     !h.available && 'cursor-not-allowed opacity-50',
                   )}
                 >
-                  <HarnessIcon harness={h.id} />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 font-medium">
                       {h.label}

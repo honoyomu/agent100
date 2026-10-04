@@ -17,10 +17,10 @@ export function AppLayout() {
   const user = data?.user
 
   return (
-    <div className="min-h-svh bg-muted/30">
-      <header className="border-b bg-background">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-          <Link to="/dashboard" className="font-heading text-base font-semibold tracking-tight">
+    <div className="min-h-svh bg-background">
+      <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
+        <div className="flex h-14 items-center justify-between px-6 md:px-8">
+          <Link to="/dashboard" className="font-mono text-sm font-medium tracking-widest uppercase">
             Agent100
           </Link>
           <DropdownMenu>
@@ -48,7 +48,7 @@ export function AppLayout() {
           </DropdownMenu>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-6 py-8">
+      <main>
         <Outlet />
       </main>
     </div>

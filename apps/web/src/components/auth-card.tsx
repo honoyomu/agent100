@@ -13,9 +13,9 @@ export function AuthCard({
   footer: ReactNode
 }) {
   return (
-    <div className="flex min-h-svh items-center justify-center bg-muted/30 p-6">
+    <div className="flex min-h-svh items-center justify-center bg-background p-6">
       <div className="w-full max-w-sm space-y-6">
-        <p className="text-center font-heading text-lg font-semibold tracking-tight">Agent100</p>
+        <p className="text-center font-mono text-sm font-medium tracking-widest uppercase">Agent100</p>
         <Card>
           <CardHeader>
             <CardTitle>{title}</CardTitle>

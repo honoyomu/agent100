@@ -21,6 +21,7 @@ export interface Agent {
   lastError: string | null
   lastActiveAt: string | null
   createdAt: string
+  resources: { vcpus: number; memGiB: number; diskGiB: number }
 }
 
 export interface HarnessInfo {
@@ -29,6 +30,17 @@ export interface HarnessInfo {
   kind: 'terminal' | 'web'
   available: boolean
 }
+
+export const HARNESS_LABELS: Record<Harness, string> = {
+  'claude-code': 'Claude Code',
+  codex: 'Codex',
+  opencode: 'OpenCode',
+  hermes: 'Hermes',
+}
+
+export const terminalUrl = (agent: Agent) => `/agents/${agent.id}/terminal`
+export const webUrl = (agent: Agent) => `/api/agents/${agent.id}/web`
+export const canOpen = (agent: Agent) => agent.status === 'running' || agent.status === 'suspended'
 
 export class ApiError extends Error {}
 
