@@ -1,8 +1,9 @@
 # Agent100
 
-Deploy coding agents (Claude Code, Codex, OpenCode; Hermes soon) into their own
+Deploy coding agents (Claude Code, Codex, OpenCode, Hermes) into their own
 [Hangar](https://github.com/InsForge/hangar) machines and use them from the browser:
-terminal agents through a web terminal, agents with a web UI through their own UI.
+Claude Code and Codex through a web terminal, OpenCode and Hermes through their own
+web UIs (every agent also has a terminal).
 
 ```
 browser ──► compute/web (Hono + Vite SPA) ── ssh2 ──► Hangar SSH gateway ──► machine

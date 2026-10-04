@@ -22,7 +22,7 @@ const DESCRIPTIONS: Record<Harness, string> = {
   'claude-code': "Anthropic's agentic coding CLI, in a web terminal.",
   codex: "OpenAI's coding agent CLI, in a web terminal.",
   opencode: 'Open-source coding agent with its own web UI.',
-  hermes: "Nous Research's self-improving agent.",
+  hermes: "Nous Research's self-improving agent, with its own web dashboard.",
 }
 
 export function DeployAgentDialog({ disabled }: { disabled?: boolean }) {

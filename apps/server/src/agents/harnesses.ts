@@ -2,6 +2,8 @@ import type { Harness } from '../db/schema.js'
 
 const OPENROUTER = 'https://openrouter.ai/api'
 const WORKSPACE = '/data/workspace'
+// Hermes state lives next to its install on the root disk (images/hermes.sh).
+const HERMES_HOME = '/opt/hermes/home/.hermes'
 
 export interface HarnessFile {
   path: string // relative to the machine user's HOME
@@ -137,10 +139,33 @@ export const HARNESSES: Record<Harness, HarnessDef> = {
   hermes: {
     id: 'hermes',
     label: 'Hermes',
-    kind: 'terminal',
+    kind: 'web',
     terminalCommand: 'hermes',
-    env: [],
-    files: [],
+    webPort: 9119,
+    webEntryPath: '/chat',
+    env: [`export HERMES_HOME=${HERMES_HOME}`],
+    files: [
+      {
+        path: '.config/systemd/user/agent-web.service',
+        content: [
+          '[Unit]',
+          'Description=Hermes dashboard',
+          '',
+          '[Service]',
+          `WorkingDirectory=${WORKSPACE}`,
+          // Loopback only: the dashboard skips its auth gate there, and the
+          // Agent100 proxy (behind its own auth) is the only way in.
+          'ExecStart=/bin/bash -lc "exec hermes dashboard --host 127.0.0.1 --port 9119 --no-open"',
+          'Restart=always',
+          'RestartSec=2',
+          '',
+          '[Install]',
+          'WantedBy=default.target',
+          '',
+        ].join('\n'),
+      },
+    ],
+    services: ['agent-web.service'],
   },
 }
 
