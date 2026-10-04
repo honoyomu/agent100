@@ -13,8 +13,10 @@ import {
   XIcon,
 } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { AgentRowActions } from '@/components/agent-row-actions'
+import { AgentSheet, type AgentSheetTab } from '@/components/agent-sheet'
 import { AgentState } from '@/components/agent-state'
 import { formatDuration } from '@/components/auto-pause-fields'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
@@ -112,6 +114,12 @@ export function DashboardPage() {
   const [page, setPage] = useState(0)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  // The open agent and tab live in the URL so a refresh or a shared link keeps them.
+  const [params, setParams] = useSearchParams()
+  const sheetAgentId = params.get('agent')
+  const sheetTab: AgentSheetTab = params.get('tab') === 'terminal' ? 'terminal' : 'overview'
+  const openSheet = (id: string, tab: AgentSheetTab = 'overview') => setParams({ agent: id, tab }, { replace: !!sheetAgentId })
+  const closeSheet = () => setParams({})
 
   const all = useMemo(() => agents ?? [], [agents])
   const filtered = useMemo(() => {
@@ -137,6 +145,7 @@ export function DashboardPage() {
   const deletable = selected.filter((a) => a.status !== 'deleting')
   const filterCount = stateFilter.size + harnessFilter.size
   const atLimit = !!harnesses && all.length >= harnesses.maxAgents
+  const sheetAgent = all.find((a) => a.id === sheetAgentId) ?? null
 
   async function bulk(targets: Agent[], action: (id: string) => Promise<unknown>, verb: string) {
     const results = await Promise.allSettled(targets.map((a) => action(a.id)))
@@ -223,42 +232,6 @@ export function DashboardPage() {
           </DropdownMenu>
 
           <div className="ml-auto flex items-center gap-2">
-            {selected.length > 0 && (
-              <div className="flex items-center gap-2 rounded-md border bg-card px-2 py-1">
-                <span className="px-1 font-mono text-xs text-muted-foreground">{selected.length} selected</span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={!startable.length}
-                  onClick={() => bulk(startable, start.mutateAsync, 'Starting')}
-                >
-                  <PlayIcon />
-                  Start{startable.length ? ` (${startable.length})` : ''}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={!pausable.length}
-                  onClick={() => bulk(pausable, suspend.mutateAsync, 'Pausing')}
-                >
-                  <PauseIcon />
-                  Pause{pausable.length ? ` (${pausable.length})` : ''}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-destructive hover:text-destructive"
-                  disabled={!deletable.length}
-                  onClick={() => setConfirmBulkDelete(true)}
-                >
-                  <Trash2Icon />
-                  Delete
-                </Button>
-                <Button size="icon-sm" variant="ghost" aria-label="Clear selection" onClick={() => setSelectedIds(new Set())}>
-                  <XIcon />
-                </Button>
-              </div>
-            )}
             <Button
               variant="outline"
               size="icon"
@@ -323,8 +296,13 @@ export function DashboardPage() {
                 </TableRow>
               ) : (
                 rows.map((agent) => (
-                  <TableRow key={agent.id} data-state={selectedIds.has(agent.id) ? 'selected' : undefined} className="h-14">
-                    <TableCell className="pl-4">
+                  <TableRow
+                    key={agent.id}
+                    data-state={selectedIds.has(agent.id) ? 'selected' : undefined}
+                    className="h-14 cursor-pointer"
+                    onClick={() => openSheet(agent.id)}
+                  >
+                    <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
                       <Checkbox
                         aria-label={`Select ${agent.name}`}
                         checked={selectedIds.has(agent.id)}
@@ -332,9 +310,17 @@ export function DashboardPage() {
                       />
                     </TableCell>
                     <TableCell className="max-w-64">
-                      <div className="truncate font-medium" title={agent.id}>
+                      <button
+                        type="button"
+                        className="max-w-full truncate font-medium underline-offset-4 hover:underline"
+                        title={agent.id}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openSheet(agent.id)
+                        }}
+                      >
                         {agent.name}
-                      </div>
+                      </button>
                     </TableCell>
                     <TableCell>
                       <AgentState status={agent.status} error={agent.lastError} />
@@ -351,8 +337,8 @@ export function DashboardPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{timeAgo(agent.lastActiveAt)}</TableCell>
-                    <TableCell className="border-l pr-3">
-                      <AgentRowActions agent={agent} />
+                    <TableCell className="border-l pr-3" onClick={(e) => e.stopPropagation()}>
+                      <AgentRowActions agent={agent} onOpen={(tab) => openSheet(agent.id, tab)} />
                     </TableCell>
                   </TableRow>
                 ))
@@ -409,6 +395,51 @@ export function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {selected.length > 0 && (
+        <div className="fixed bottom-24 left-1/2 z-40 flex -translate-x-1/2 animate-in items-center gap-1 rounded-xl border bg-popover/95 p-1.5 pl-4 shadow-2xl shadow-black backdrop-blur fade-in slide-in-from-bottom-4">
+          <span className="pr-2 font-mono text-xs text-muted-foreground">{selected.length} selected</span>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={!startable.length}
+            onClick={() => bulk(startable, start.mutateAsync, 'Starting')}
+          >
+            <PlayIcon />
+            Start{startable.length ? ` (${startable.length})` : ''}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={!pausable.length}
+            onClick={() => bulk(pausable, suspend.mutateAsync, 'Pausing')}
+          >
+            <PauseIcon />
+            Pause{pausable.length ? ` (${pausable.length})` : ''}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
+            disabled={!deletable.length}
+            onClick={() => setConfirmBulkDelete(true)}
+          >
+            <Trash2Icon />
+            Delete{deletable.length ? ` (${deletable.length})` : ''}
+          </Button>
+          <div className="mx-1 h-5 w-px bg-border" />
+          <Button size="icon-sm" variant="ghost" aria-label="Clear selection" onClick={() => setSelectedIds(new Set())}>
+            <XIcon />
+          </Button>
+        </div>
+      )}
+
+      <AgentSheet
+        agent={sheetAgent}
+        tab={sheetTab}
+        onTabChange={(tab) => sheetAgent && openSheet(sheetAgent.id, tab)}
+        onClose={closeSheet}
+      />
 
       <ConfirmDeleteDialog
         names={deletable.map((a) => a.name)}

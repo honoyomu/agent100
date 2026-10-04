@@ -175,6 +175,9 @@ export const HARNESSES: Record<Harness, HarnessDef> = {
 export const TMUX_SESSION = 'agent'
 export { WORKSPACE }
 
+/** A plain login shell in the workspace, separate from the agent's own session. */
+export const SHELL_COMMAND = `cd ${WORKSPACE} && exec bash -l`
+
 /** The command a terminal connection runs: attach to (or start) the agent's tmux session. */
 export function terminalCommand(def: HarnessDef) {
   const inner = `${def.terminalCommand}; exec bash -l`

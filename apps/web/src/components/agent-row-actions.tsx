@@ -1,15 +1,6 @@
-import {
-  AppWindowIcon,
-  MoreHorizontalIcon,
-  PauseIcon,
-  PlayIcon,
-  Settings2Icon,
-  TerminalIcon,
-  Trash2Icon,
-} from 'lucide-react'
+import { ArrowUpRightIcon, MoreHorizontalIcon, PanelRightOpenIcon, PauseIcon, PlayIcon, TerminalIcon, Trash2Icon } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
-import { AgentSettingsDialog } from '@/components/agent-settings-dialog'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,13 +14,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import {
   canOpen,
   isTransitional,
-  terminalUrl,
+  jumpUrl,
   useDeleteAgent,
   useStartAgent,
   useSuspendAgent,
-  webUrl,
   type Agent,
 } from '@/lib/api'
+import type { AgentSheetTab } from '@/components/agent-sheet'
 
 function IconAction({
   label,
@@ -69,8 +60,7 @@ function IconAction({
   )
 }
 
-export function AgentRowActions({ agent }: { agent: Agent }) {
-  const [settingsOpen, setSettingsOpen] = useState(false)
+export function AgentRowActions({ agent, onOpen }: { agent: Agent; onOpen: (tab: AgentSheetTab) => void }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const start = useStartAgent()
   const suspend = useSuspendAgent()
@@ -97,18 +87,12 @@ export function AgentRowActions({ agent }: { agent: Agent }) {
           <PlayIcon />
         </IconAction>
       )}
-      {agent.kind === 'web' ? (
-        <IconAction label="Open web UI" href={webUrl(agent)} disabled={!openable}>
-          <AppWindowIcon />
-        </IconAction>
-      ) : (
-        // Keeps every row's icons in the same columns.
-        <span className="size-7" aria-hidden />
-      )}
-      <IconAction label="Open terminal" href={terminalUrl(agent)} disabled={!openable}>
+      <IconAction label="Open in new tab" href={jumpUrl(agent)} disabled={!openable}>
+        <ArrowUpRightIcon />
+      </IconAction>
+      <IconAction label="Terminal" disabled={!openable} onClick={() => onOpen('terminal')}>
         <TerminalIcon />
       </IconAction>
-      {/* Non-modal so the dialogs it opens get focus and pointer events. */}
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon-sm" aria-label="More actions">
@@ -116,23 +100,15 @@ export function AgentRowActions({ agent }: { agent: Agent }) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
-          {agent.kind === 'web' && (
-            <DropdownMenuItem disabled={!openable} asChild>
-              <a href={webUrl(agent)} target="_blank" rel="noreferrer">
-                <AppWindowIcon />
-                Open web UI
-              </a>
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuItem disabled={!openable} asChild>
-            <a href={terminalUrl(agent)} target="_blank" rel="noreferrer">
-              <TerminalIcon />
-              Open terminal
-            </a>
+          <DropdownMenuItem onSelect={() => onOpen('overview')}>
+            <PanelRightOpenIcon />
+            Details
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
-            <Settings2Icon />
-            Settings
+          <DropdownMenuItem disabled={!openable} asChild>
+            <a href={jumpUrl(agent)} target="_blank" rel="noreferrer">
+              <ArrowUpRightIcon />
+              Open in new tab
+            </a>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -145,7 +121,6 @@ export function AgentRowActions({ agent }: { agent: Agent }) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <AgentSettingsDialog agent={agent} open={settingsOpen} onOpenChange={setSettingsOpen} />
       <ConfirmDeleteDialog
         names={[agent.name]}
         open={confirmDelete}

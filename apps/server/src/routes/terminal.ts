@@ -1,11 +1,12 @@
 // WebSocket bridge between the browser's xterm.js and a pty on the agent's
-// machine. Client → server: JSON {type: "input", data} | {type: "resize", cols, rows}.
+// machine: the agent's tmux session (?mode=agent, default) or a plain shell
+// (?mode=shell). Client → server: JSON {type: "input", data} | {type: "resize", cols, rows}.
 // Server → client: binary terminal output, or JSON {type: "status" | "error" | "exit", message?}.
 import type { Context } from 'hono'
 import type { UpgradeWebSocket, WSContext } from 'hono/ws'
 import type { ClientChannel } from 'ssh2'
 import { touch, track } from '../agents/activity.js'
-import { HARNESSES, terminalCommand } from '../agents/harnesses.js'
+import { HARNESSES, SHELL_COMMAND, terminalCommand } from '../agents/harnesses.js'
 import { ensureRunning, getAgent } from '../agents/service.js'
 import * as pool from '../hangar/pool.js'
 import { shell } from '../hangar/ssh.js'
@@ -22,6 +23,7 @@ export function terminalHandler(upgradeWebSocket: UpgradeWebSocket<unknown>) {
     const agentId = c.req.param('id') ?? ''
     let cols = clampSize(c.req.query('cols'), 120)
     let rows = clampSize(c.req.query('rows'), 32)
+    const mode = c.req.query('mode') === 'shell' ? 'shell' : 'agent'
     let stream: ClientChannel | null = null
     let release: (() => void) | null = null
     let untrack: (() => void) | null = null
@@ -48,7 +50,8 @@ export function terminalHandler(upgradeWebSocket: UpgradeWebSocket<unknown>) {
           const lease = await pool.acquire(machineId)
           release = lease.release
           if (closed) return cleanup()
-          stream = await shell(lease.client, terminalCommand(HARNESSES[row.harness]), {
+          const command = mode === 'shell' ? SHELL_COMMAND : terminalCommand(HARNESSES[row.harness])
+          stream = await shell(lease.client, command, {
             term: 'xterm-256color',
             cols,
             rows,

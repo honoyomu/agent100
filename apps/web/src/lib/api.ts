@@ -16,6 +16,7 @@ export interface Agent {
   harness: Harness
   kind: 'terminal' | 'web'
   status: AgentStatus
+  machineId: string | null
   autoPause: boolean
   idleTimeoutSeconds: number
   lastError: string | null
@@ -40,6 +41,8 @@ export const HARNESS_LABELS: Record<Harness, string> = {
 
 export const terminalUrl = (agent: Agent) => `/agents/${agent.id}/terminal`
 export const webUrl = (agent: Agent) => `/api/agents/${agent.id}/web`
+/** Where "jump to" goes: the agent's own web UI, or its full-page agent terminal. */
+export const jumpUrl = (agent: Agent) => (agent.kind === 'web' ? webUrl(agent) : terminalUrl(agent))
 export const canOpen = (agent: Agent) => agent.status === 'running' || agent.status === 'suspended'
 
 export class ApiError extends Error {}
@@ -106,6 +109,29 @@ export const useSuspendAgent = () =>
   useAgentMutation((id: string) => request(`/agents/${id}/suspend`, { method: 'POST' }))
 export const useDeleteAgent = () =>
   useAgentMutation((id: string) => request(`/agents/${id}`, { method: 'DELETE' }))
+
+export interface MachineInfo {
+  id: string
+  name: string
+  state: string
+  ready: boolean
+  processesPreserved: boolean | null
+  spec: { vcpus: number; memMiB: number; persistentDiskGiB: number; rootDiskGiB?: number }
+  storage: { sizeGiB: number; mountPath: string; synced: boolean }
+  template: string
+  image: { id: string; name: string | null; versions: string | null } | null
+  createdAt: string
+  updatedAt: string
+}
+
+export function useAgentMachine(id: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ['agents', id, 'machine'],
+    queryFn: () => request<{ machine: MachineInfo | null }>(`/agents/${id}/machine`).then((r) => r.machine),
+    enabled: !!id && enabled,
+    refetchInterval: 10_000,
+  })
+}
 
 export function useAgent(id: string) {
   return useQuery({
