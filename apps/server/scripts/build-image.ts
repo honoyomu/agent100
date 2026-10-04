@@ -30,7 +30,7 @@ const created = await waitOp(await hangar.createMachine({ name, templateId: BASE
 const machineId = created.machineId
 
 try {
-  const script = ['base', harness, 'cleanup']
+  const script = ['base', 'devtools', harness, 'cleanup']
     .map((part) => readFile(new URL(`../images/${part}.sh`, import.meta.url), 'utf8'))
   const client = await connect(machineId)
   log('installing')

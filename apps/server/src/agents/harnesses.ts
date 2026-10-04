@@ -69,6 +69,9 @@ export const HARNESSES: Record<Harness, HarnessDef> = {
         content: [
           'model = "openai/gpt-5.6-terra"',
           'model_provider = "openrouter"',
+          // The agent's VM is the isolation boundary; Codex's own sandbox would
+          // block the network and the Docker socket inside it.
+          'sandbox_mode = "danger-full-access"',
           '',
           '[model_providers.openrouter]',
           'name = "OpenRouter"',
