@@ -1,0 +1,80 @@
+diff --git a/lib/protocol/Protocol.js b/lib/protocol/Protocol.js
+index 7302488102161b5b627f6f089d502caa6df0f356..87d329c8457b4f74b0298dadfb2424402e7b5e71 100644
+--- a/lib/protocol/Protocol.js
++++ b/lib/protocol/Protocol.js
+@@ -696,6 +696,8 @@ class Protocol {
+       return;
+     }
+ 
++    const sigAlgo = keyAlgo.replace(/-cert-v0[01]@openssh\.com$/, '');
++    const sigAlgoLen = Buffer.byteLength(sigAlgo);
+     cbSign(packet, (signature) => {
+       signature = convertSignature(signature, keyType);
+       if (signature === false)
+@@ -705,7 +707,7 @@ class Protocol {
+       p = this._packetRW.write.allocStart;
+       packet = this._packetRW.write.alloc(
+         1 + 4 + userLen + 4 + 14 + 4 + 9 + 1 + 4 + algoLen + 4 + pubKeyLen + 4
+-          + 4 + algoLen + 4 + sigLen
++          + 4 + sigAlgoLen + 4 + sigLen
+       );
+ 
+       // TODO: simply copy from original "packet" to new `packet` to avoid
+@@ -729,12 +731,12 @@ class Protocol {
+       writeUInt32BE(packet, pubKeyLen, p += algoLen);
+       packet.set(pubKey, p += 4);
+ 
+-      writeUInt32BE(packet, 4 + algoLen + 4 + sigLen, p += pubKeyLen);
++      writeUInt32BE(packet, 4 + sigAlgoLen + 4 + sigLen, p += pubKeyLen);
+ 
+-      writeUInt32BE(packet, algoLen, p += 4);
+-      packet.utf8Write(keyAlgo, p += 4, algoLen);
++      writeUInt32BE(packet, sigAlgoLen, p += 4);
++      packet.utf8Write(sigAlgo, p += 4, sigAlgoLen);
+ 
+-      writeUInt32BE(packet, sigLen, p += algoLen);
++      writeUInt32BE(packet, sigLen, p += sigAlgoLen);
+       packet.set(signature, p += 4);
+ 
+       // Servers shouldn't send packet type 60 in response to signed publickey
+diff --git a/lib/protocol/constants.js b/lib/protocol/constants.js
+index ad7759257d6bdbcafa353dec8946258d64c14eb0..60d2e7a1368f2e57e4fc7083fff39ff18b4ecadc 100644
+--- a/lib/protocol/constants.js
++++ b/lib/protocol/constants.js
+@@ -73,6 +73,7 @@ if (eddsaSupported)
+   DEFAULT_SERVER_HOST_KEY.unshift('ssh-ed25519');
+ const SUPPORTED_SERVER_HOST_KEY = DEFAULT_SERVER_HOST_KEY.concat([
+   'ssh-dss',
++  'ssh-ed25519-cert-v01@openssh.com',
+ ]);
+ 
+ 
+diff --git a/lib/protocol/kex.js b/lib/protocol/kex.js
+index 811e631b8ab78d32776e540919d25aae56d628f7..6c2af0644225db99e5810a77481c2d1e5d5ba078 100644
+--- a/lib/protocol/kex.js
++++ b/lib/protocol/kex.js
+@@ -635,7 +635,9 @@ const createKeyExchange = (() => {
+           );
+         }
+ 
+-        if (sigType !== negotiated.serverHostKey) {
++        if (sigType !== negotiated.serverHostKey
++            && sigType !== negotiated.serverHostKey.replace(
++              /-cert-v0[01]@openssh\.com$/, '')) {
+           return doFatalError(
+             this._protocol,
+             `Wrong signature type: ${sigType}, `
+@@ -671,7 +673,12 @@ const createKeyExchange = (() => {
+         let parsedHostKey;
+         {
+           bufferParser.init(this._hostKey, 0);
+-          const name = bufferParser.readString(true);
++          let name = bufferParser.readString(true);
++          if (/-cert-v0[01]@openssh\.com$/.test(name)) {
++            // Certificate: skip the nonce; the embedded key follows.
++            bufferParser.readString();
++            name = name.replace(/-cert-v0[01]@openssh\.com$/, '');
++          }
+           const hostKey = this._hostKey.slice(bufferParser.pos());
+           bufferParser.clear();
+           parsedHostKey = parseDERKey(hostKey, name);
