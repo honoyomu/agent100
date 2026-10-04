@@ -1,0 +1,10 @@
+packages:
+  - apps/*
+allowBuilds:
+  '@prisma/client': false
+  better-sqlite3: false
+  cpu-features: false
+  esbuild: true
+  ssh2: false
+patchedDependencies:
+  ssh2@1.17.0: patches/ssh2@1.17.0.patch
