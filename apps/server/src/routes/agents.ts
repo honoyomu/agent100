@@ -7,6 +7,7 @@ import {
   deleteAgent,
   getAgent,
   listAgents,
+  MACHINE_SPEC,
   MAX_AGENTS_PER_USER,
   startAgent,
   suspendAgent,
@@ -50,6 +51,7 @@ function present(row: Agent) {
     lastError: row.lastError,
     lastActiveAt: row.lastActiveAt,
     createdAt: row.createdAt,
+    resources: { vcpus: MACHINE_SPEC.vcpus, memGiB: MACHINE_SPEC.memMiB / 1024, diskGiB: MACHINE_SPEC.persistentDiskGiB },
   }
 }
 

@@ -9,7 +9,7 @@ import { configureAgent } from './configure.js'
 export type Agent = typeof agent.$inferSelect
 
 export const MAX_AGENTS_PER_USER = 2
-const MACHINE_SPEC = { vcpus: 2, memMiB: 4096 }
+export const MACHINE_SPEC = { vcpus: 2, memMiB: 4096, persistentDiskGiB: 20 }
 const READY_TIMEOUT_MS = 3 * 60_000
 
 const openrouterApiKey = () => {
