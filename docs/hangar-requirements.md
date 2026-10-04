@@ -47,7 +47,25 @@ Agent100 是一个内部 POC，主要目的是测试 Hangar。用户在 dashboar
 
 `maxImagesPerUser = 10` 也是同样的情况：每种 harness 一个 image，每次升级 CLI 都会多出一个版本。
 
-## 5. 有了更好（nice to have）
+## 5. 服务端的空闲策略（idle policy）
+
+**现状：** Hangar 只提供 suspend 和 start 接口，自己从不自动 suspend，也不会自动启动。所以空闲检测完全由我们的后端负责：每分钟扫描一次，30 分钟没有任何连接就调 suspend。
+
+**问题：**
+- 我们的后端一旦挂掉，就没人负责 suspend，machine 会一直开着。
+- 每个接入方都得自己重写一遍这套逻辑。
+- Hangar 自己其实最清楚 machine 有没有在用，gateway 本来就在统计每个连接的进出字节数。
+
+**希望：** 和 Fly Machines、Daytona、Modal、Codespaces 一样，由服务端执行策略，客户端只负责传参数和续期：
+- 创建时，以及 `PATCH /v1/machines/{id}` 时，可以设置 `idleTimeoutSeconds` 和 `idleAction`（`suspend` 或 `stop`，0 表示关闭）。
+- 空闲由 Hangar 判断：一段时间内 gateway 上没有带流量的连接，也可以结合 guest-agent 上报的 CPU 或进程活动。
+- 提供 `POST /v1/machines/{id}/keepalive`。客户端知道"agent 正在后台干活、只是没人在看"时调它，免得被误判为空闲。
+- `Machine` 里返回 `lastActivityAt` 和当前生效的空闲策略。
+- （可选）有 SSH 连接进来时，自动 start 已 suspend 的 machine。
+
+有了这些，我们就会在创建时设好空闲策略，agent 忙的时候调 keepalive，自己的扫描逻辑只留作兜底。
+
+## 6. 有了更好（nice to have）
 
 - **HTTP 的 exec API**：`POST /v1/machines/{id}/exec { argv, env, cwd, stdin, timeoutSeconds }`，返回 stdout、stderr 和 exitCode。这样初始化时（写配置、启动服务）就不用走 SSH。
 - **创建时传 env 或 user-data**：类似 cloud-init，第一次启动时执行一次。
@@ -55,7 +73,7 @@ Agent100 是一个内部 POC，主要目的是测试 Hangar。用户在 dashboar
 - **operation 完成时的 webhook**：现在只能轮询。
 - **fork 运行中或已 suspend 的 machine**：将来用来"克隆 agent"。
 
-## 6. 使用中的反馈
+## 7. 使用中的反馈
 
 - **gateway 只提供 ed25519 主机证书**（`ssh-ed25519-cert-v01@openssh.com`）。Node 最常用的 SSH 库 ssh2 既不支持主机证书，也不支持用户证书登录，我们是自己给它打了补丁才连上的。如果 gateway 同时提供一个普通的 host key（客户端照样可以用 known_hosts 固定它），或者在文档里给出 Node/Python 的接入示例，其他接入方会省事很多。
 

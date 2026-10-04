@@ -5,7 +5,8 @@ import { db } from '../db/index.js'
 import { agent } from '../db/schema.js'
 import { suspendIdle } from './service.js'
 
-export const IDLE_SUSPEND_MS = 30 * 60_000
+// Minutes without any connection or activity before an agent is suspended.
+export const IDLE_SUSPEND_MS = Number(process.env.IDLE_SUSPEND_MINUTES ?? 30) * 60_000
 const TOUCH_EVERY_MS = 60_000
 
 const connections = new Map<string, number>()

@@ -20,6 +20,8 @@ const commands: Record<string, () => Promise<unknown>> = {
   op: () => hangar.getOperation(args[0]),
   create: () =>
     waitFor(hangar.createMachine({ name: args[0], templateId: args[1] ?? 'herdr', vcpus: 2, memMiB: 4096 })),
+  'create-from-image': () =>
+    waitFor(hangar.createMachine({ name: args[0], imageId: args[1], vcpus: 2, memMiB: 4096 })),
   start: () => waitFor(hangar.startMachine(args[0])),
   stop: () => waitFor(hangar.stopMachine(args[0])),
   suspend: () => waitFor(hangar.suspendMachine(args[0])),
