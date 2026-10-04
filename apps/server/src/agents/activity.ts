@@ -1,13 +1,14 @@
 // In-memory record of who is connected to which agent, and the reaper that
 // suspends agents nobody has used for a while.
-import { and, eq, isNull, lt, or } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { agent } from '../db/schema.js'
 import { suspendIdle } from './service.js'
 
-// Minutes without any connection or activity before an agent is suspended.
-export const IDLE_SUSPEND_MS = Number(process.env.IDLE_SUSPEND_MINUTES ?? 30) * 60_000
-const TOUCH_EVERY_MS = 60_000
+// Activity is written at most this often, and refreshed this often while a
+// connection is open; it must stay well under the shortest idle timeout.
+const TOUCH_EVERY_MS = 20_000
+const SCAN_EVERY_MS = 15_000
 
 const connections = new Map<string, number>()
 const lastTouch = new Map<string, number>()
@@ -47,18 +48,20 @@ export function startHeartbeat() {
 export function startIdleReaper() {
   setInterval(async () => {
     try {
-      const cutoff = new Date(Date.now() - IDLE_SUSPEND_MS)
-      const idle = await db
+      const now = Date.now()
+      const candidates = await db
         .select()
         .from(agent)
-        .where(and(eq(agent.status, 'running'), or(isNull(agent.lastActiveAt), lt(agent.lastActiveAt, cutoff))))
-      for (const row of idle) {
+        .where(and(eq(agent.status, 'running'), eq(agent.autoPause, true)))
+      for (const row of candidates) {
         if (connections.get(row.id)) continue
-        console.log(`suspending idle agent ${row.id}`)
+        const idleFor = now - (row.lastActiveAt?.getTime() ?? 0)
+        if (idleFor < row.idleTimeoutSeconds * 1000) continue
+        console.log(`suspending agent ${row.id}: idle for ${Math.round(idleFor / 1000)}s`)
         suspendIdle(row)
       }
     } catch (err) {
       console.error('idle reaper:', err)
     }
-  }, 60_000).unref()
+  }, SCAN_EVERY_MS).unref()
 }

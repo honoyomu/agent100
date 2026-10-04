@@ -16,6 +16,8 @@ export interface Agent {
   harness: Harness
   kind: 'terminal' | 'web'
   status: AgentStatus
+  autoPause: boolean
+  idleTimeoutSeconds: number
   lastError: string | null
   lastActiveAt: string | null
   createdAt: string
@@ -55,7 +57,12 @@ export function useAgents() {
 export function useHarnesses() {
   return useQuery({
     queryKey: ['harnesses'],
-    queryFn: () => request<{ harnesses: HarnessInfo[]; maxAgents: number }>('/harnesses'),
+    queryFn: () =>
+      request<{
+        harnesses: HarnessInfo[]
+        maxAgents: number
+        idleTimeout: { default: number; min: number; max: number }
+      }>('/harnesses'),
     staleTime: 60_000,
   })
 }
@@ -68,9 +75,18 @@ function useAgentMutation<V>(fn: (vars: V) => Promise<unknown>) {
   })
 }
 
+export interface AutoPauseSettings {
+  autoPause: boolean
+  idleTimeoutSeconds: number
+}
+
 export const useCreateAgent = () =>
-  useAgentMutation((vars: { name: string; harness: Harness }) =>
+  useAgentMutation((vars: { name: string; harness: Harness } & AutoPauseSettings) =>
     request<{ agent: Agent }>('/agents', { method: 'POST', body: JSON.stringify(vars) }),
+  )
+export const useUpdateAgent = () =>
+  useAgentMutation(({ id, ...settings }: { id: string } & Partial<AutoPauseSettings>) =>
+    request<{ agent: Agent }>(`/agents/${id}`, { method: 'PATCH', body: JSON.stringify(settings) }),
   )
 export const useStartAgent = () =>
   useAgentMutation((id: string) => request(`/agents/${id}/start`, { method: 'POST' }))

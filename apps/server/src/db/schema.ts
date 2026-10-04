@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import { boolean, index, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { user } from './auth-schema.js'
 
 export const HARNESSES = ['claude-code', 'codex', 'opencode', 'hermes'] as const
@@ -15,6 +15,10 @@ export const AGENT_STATUSES = [
 ] as const
 export type AgentStatus = (typeof AGENT_STATUSES)[number]
 
+export const DEFAULT_IDLE_TIMEOUT_SECONDS = 300
+export const MIN_IDLE_TIMEOUT_SECONDS = 60
+export const MAX_IDLE_TIMEOUT_SECONDS = 7 * 24 * 3600
+
 export const agent = pgTable(
   'agent',
   {
@@ -30,6 +34,9 @@ export const agent = pgTable(
     operationId: text('operation_id'),
     lastError: text('last_error'),
     lastActiveAt: timestamp('last_active_at'),
+    // Suspend the machine after this long without connections or activity.
+    autoPause: boolean('auto_pause').notNull().default(true),
+    idleTimeoutSeconds: integer('idle_timeout_seconds').notNull().default(300),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()

@@ -10,18 +10,32 @@ import {
   MAX_AGENTS_PER_USER,
   startAgent,
   suspendAgent,
+  updateAgentSettings,
   type Agent,
 } from '../agents/service.js'
 import { signGrant } from '../agents/web-token.js'
 import { db } from '../db/index.js'
 import { env } from '../env.js'
-import { HARNESSES, harnessImage } from '../db/schema.js'
+import {
+  DEFAULT_IDLE_TIMEOUT_SECONDS,
+  HARNESSES,
+  harnessImage,
+  MAX_IDLE_TIMEOUT_SECONDS,
+  MIN_IDLE_TIMEOUT_SECONDS,
+} from '../db/schema.js'
 import type { AppEnv } from './types.js'
 
-const createSchema = z.object({
-  name: z.string().trim().min(1).max(40),
-  harness: z.enum(HARNESSES),
+const settingsSchema = z.object({
+  autoPause: z.boolean(),
+  idleTimeoutSeconds: z.number().int().min(MIN_IDLE_TIMEOUT_SECONDS).max(MAX_IDLE_TIMEOUT_SECONDS),
 })
+
+const createSchema = z
+  .object({
+    name: z.string().trim().min(1).max(40),
+    harness: z.enum(HARNESSES),
+  })
+  .extend(settingsSchema.partial().shape)
 
 function present(row: Agent) {
   const def = HARNESS_DEFS[row.harness]
@@ -31,6 +45,8 @@ function present(row: Agent) {
     harness: row.harness,
     kind: def.kind,
     status: row.status,
+    autoPause: row.autoPause,
+    idleTimeoutSeconds: row.idleTimeoutSeconds,
     lastError: row.lastError,
     lastActiveAt: row.lastActiveAt,
     createdAt: row.createdAt,
@@ -58,6 +74,11 @@ export const agentRoutes = new Hono<AppEnv>()
         available: available.has(id),
       })),
       maxAgents: MAX_AGENTS_PER_USER,
+      idleTimeout: {
+        default: DEFAULT_IDLE_TIMEOUT_SECONDS,
+        min: MIN_IDLE_TIMEOUT_SECONDS,
+        max: MAX_IDLE_TIMEOUT_SECONDS,
+      },
     })
   })
   .get('/agents', async (c) => {
@@ -67,11 +88,17 @@ export const agentRoutes = new Hono<AppEnv>()
   .post('/agents', async (c) => {
     const parsed = createSchema.safeParse(await c.req.json().catch(() => null))
     if (!parsed.success) return c.json({ error: 'invalid request' }, 400)
-    const row = await createAgent(c.get('user')!.id, parsed.data.name, parsed.data.harness)
+    const row = await createAgent(c.get('user')!.id, parsed.data)
     return c.json({ agent: present(row) }, 201)
   })
   .get('/agents/:id', async (c) => {
     return c.json({ agent: present(await getAgent(c.get('user')!.id, c.req.param('id'))) })
+  })
+  .patch('/agents/:id', async (c) => {
+    const parsed = settingsSchema.partial().safeParse(await c.req.json().catch(() => null))
+    if (!parsed.success) return c.json({ error: 'invalid settings' }, 400)
+    const row = await updateAgentSettings(c.get('user')!.id, c.req.param('id'), parsed.data)
+    return c.json({ agent: present(row) })
   })
   .post('/agents/:id/start', async (c) => {
     return c.json({ agent: present(await startAgent(c.get('user')!.id, c.req.param('id'))) })
