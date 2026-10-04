@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { HARNESSES as HARNESS_DEFS } from '../agents/harnesses.js'
@@ -16,6 +17,7 @@ import {
 } from '../agents/service.js'
 import { signGrant } from '../agents/web-token.js'
 import { db } from '../db/index.js'
+import { hangar } from '../hangar/client.js'
 import { env } from '../env.js'
 import {
   DEFAULT_IDLE_TIMEOUT_SECONDS,
@@ -46,6 +48,7 @@ function present(row: Agent) {
     harness: row.harness,
     kind: def.kind,
     status: row.status,
+    machineId: row.machineId,
     autoPause: row.autoPause,
     idleTimeoutSeconds: row.idleTimeoutSeconds,
     lastError: row.lastError,
@@ -95,6 +98,29 @@ export const agentRoutes = new Hono<AppEnv>()
   })
   .get('/agents/:id', async (c) => {
     return c.json({ agent: present(await getAgent(c.get('user')!.id, c.req.param('id'))) })
+  })
+  .get('/agents/:id/machine', async (c) => {
+    const row = await getAgent(c.get('user')!.id, c.req.param('id'))
+    if (!row.machineId) return c.json({ machine: null })
+    const m = await hangar.getMachine(row.machineId)
+    const [image] = m.image
+      ? await db.select().from(harnessImage).where(eq(harnessImage.imageId, m.image.id))
+      : []
+    return c.json({
+      machine: {
+        id: m.id,
+        name: m.name,
+        state: m.state,
+        ready: m.runtime.ready,
+        processesPreserved: m.runtime.processesPreserved ?? null,
+        spec: m.spec,
+        storage: { sizeGiB: m.storage.sizeGiB, mountPath: m.storage.mountPath, synced: m.storage.synced },
+        template: `${m.template.id}@${m.template.version}`,
+        image: m.image ? { id: m.image.id, name: image?.name ?? null, versions: image?.versions ?? null } : null,
+        createdAt: m.createdAt,
+        updatedAt: m.updatedAt,
+      },
+    })
   })
   .patch('/agents/:id', async (c) => {
     const parsed = settingsSchema.partial().safeParse(await c.req.json().catch(() => null))
