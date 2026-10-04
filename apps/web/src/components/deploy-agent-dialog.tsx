@@ -1,6 +1,7 @@
 import { PlusIcon } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
+import { AutoPauseFields, DEFAULT_IDLE_SECONDS, parseAutoPause, type AutoPauseValue } from '@/components/auto-pause-fields'
 import { HarnessIcon } from '@/components/harness-icon'
 import { Button } from '@/components/ui/button'
 import {
@@ -29,13 +30,21 @@ export function DeployAgentDialog({ disabled }: { disabled?: boolean }) {
   const [open, setOpen] = useState(false)
   const [harness, setHarness] = useState<Harness>('claude-code')
   const [name, setName] = useState('')
+  const [autoPause, setAutoPause] = useState<AutoPauseValue>({ autoPause: true, seconds: String(DEFAULT_IDLE_SECONDS) })
   const { data } = useHarnesses()
   const create = useCreateAgent()
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
+    const settings = parseAutoPause(autoPause, data?.idleTimeout)
+    if ('error' in settings) return void toast.error(settings.error)
     try {
-      await create.mutateAsync({ name: name.trim(), harness })
+      await create.mutateAsync({
+        name: name.trim(),
+        harness,
+        autoPause: settings.autoPause,
+        idleTimeoutSeconds: settings.idleTimeoutSeconds ?? DEFAULT_IDLE_SECONDS,
+      })
       toast.success('Agent is being deployed')
       setOpen(false)
       setName('')
@@ -96,6 +105,7 @@ export function DeployAgentDialog({ disabled }: { disabled?: boolean }) {
               ))}
             </RadioGroup>
           </div>
+          <AutoPauseFields idPrefix="deploy" value={autoPause} onChange={setAutoPause} />
           <DialogFooter>
             <Button type="submit" disabled={create.isPending || !name.trim()}>
               {create.isPending ? 'Deploying…' : 'Deploy'}

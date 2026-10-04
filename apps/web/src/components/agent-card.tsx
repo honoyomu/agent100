@@ -1,7 +1,17 @@
-import { AppWindowIcon, MoreHorizontalIcon, PauseIcon, PlayIcon, SquareTerminalIcon, Trash2Icon } from 'lucide-react'
+import {
+  AppWindowIcon,
+  MoreHorizontalIcon,
+  PauseIcon,
+  PlayIcon,
+  Settings2Icon,
+  SquareTerminalIcon,
+  Trash2Icon,
+} from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
+import { AgentSettingsDialog } from '@/components/agent-settings-dialog'
 import { AgentStatusBadge } from '@/components/agent-status-badge'
+import { formatDuration } from '@/components/auto-pause-fields'
 import { HarnessIcon } from '@/components/harness-icon'
 import {
   AlertDialog,
@@ -70,6 +80,7 @@ function OpenButton({
 
 export function AgentCard({ agent }: { agent: Agent }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const start = useStartAgent()
   const suspend = useSuspendAgent()
   const remove = useDeleteAgent()
@@ -91,6 +102,9 @@ export function AgentCard({ agent }: { agent: Agent }) {
           </div>
           <p className="text-sm text-muted-foreground">
             {HARNESS_LABELS[agent.harness]} · active {timeAgo(agent.lastActiveAt)}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {agent.autoPause ? `Auto-pauses after ${formatDuration(agent.idleTimeoutSeconds)} idle` : 'Auto pause off'}
           </p>
           {agent.status === 'error' && agent.lastError && (
             <p className="mt-2 line-clamp-3 text-xs text-destructive">{agent.lastError}</p>
@@ -117,7 +131,8 @@ export function AgentCard({ agent }: { agent: Agent }) {
             )}
           </Button>
         )}
-        <DropdownMenu>
+        {/* Non-modal so the dialogs it opens get focus and pointer events. */}
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon-sm" aria-label="More actions">
               <MoreHorizontalIcon />
@@ -136,6 +151,10 @@ export function AgentCard({ agent }: { agent: Agent }) {
                 Start
               </DropdownMenuItem>
             )}
+            <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+              <Settings2Icon />
+              Settings
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"
@@ -148,6 +167,7 @@ export function AgentCard({ agent }: { agent: Agent }) {
           </DropdownMenuContent>
         </DropdownMenu>
       </CardFooter>
+      <AgentSettingsDialog agent={agent} open={settingsOpen} onOpenChange={setSettingsOpen} />
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>

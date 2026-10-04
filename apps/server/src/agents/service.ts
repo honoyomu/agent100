@@ -156,7 +156,16 @@ export async function getAgent(userId: string, id: string) {
   return row
 }
 
-export async function createAgent(userId: string, name: string, harness: Harness) {
+export interface AgentSettings {
+  autoPause: boolean
+  idleTimeoutSeconds: number
+}
+
+export async function createAgent(
+  userId: string,
+  input: { name: string; harness: Harness } & Partial<AgentSettings>,
+) {
+  const { name, harness } = input
   const existing = await db.select({ id: agent.id }).from(agent).where(eq(agent.userId, userId))
   if (existing.length >= MAX_AGENTS_PER_USER) {
     throw new AgentError(429, `You can run up to ${MAX_AGENTS_PER_USER} agents. Delete one first.`)
@@ -164,9 +173,26 @@ export async function createAgent(userId: string, name: string, harness: Harness
   const [image] = await db.select().from(harnessImage).where(eq(harnessImage.harness, harness)).limit(1)
   if (!image) throw new AgentError(400, `${harness} is not available yet`)
 
-  const [row] = await db.insert(agent).values({ id: newAgentId(), userId, name, harness }).returning()
+  const [row] = await db
+    .insert(agent)
+    .values({
+      id: newAgentId(),
+      userId,
+      name,
+      harness,
+      autoPause: input.autoPause,
+      idleTimeoutSeconds: input.idleTimeoutSeconds,
+    })
+    .returning()
   background(row.id, () => provision(row.id))
   return row
+}
+
+export async function updateAgentSettings(userId: string, id: string, settings: Partial<AgentSettings>) {
+  await getAgent(userId, id)
+  // Changing the policy restarts the idle clock, so turning auto pause on
+  // does not suspend an agent that has simply been left alone.
+  return update(id, { ...settings, lastActiveAt: new Date() })
 }
 
 export async function startAgent(userId: string, id: string) {
